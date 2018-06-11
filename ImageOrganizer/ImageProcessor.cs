@@ -27,6 +27,10 @@ namespace ImageOrganizer {
         string currentFileName;
         readonly object lockObject = new object();
         public ImageProcessor(string inputDir, string outputDir, string rules) {
+            if (!Directory.Exists(inputDir)) {
+                AppendLog(string.Format("{0}: launching failed. {1} isn't exists.", DateTime.Now, inputDir));
+                throw new ArgumentException();
+            }
             this.inputDir = inputDir;
             this.outputDir = outputDir;
             this.rules = rules;
@@ -118,39 +122,47 @@ namespace ImageOrganizer {
             lock (this.lockObject) {
                 CancellationToken token = this.tokenSource.Token;
                 string[] files = Directory.GetFiles(this.inputDir, "*.*", SearchOption.AllDirectories);
-                foreach (string file in files) {
-                    if (token.IsCancellationRequested)
-                        break;
-                    ProcessFile(file);
-                }
+                ProcessFiles(files, token);
+                AppendLog(files.Length + " files has been copied.");
             }
         }
         void ProcessFiles(CancellationToken token) {
             lock (this.lockObject) {
-                foreach (string fullName in this.filesToProcess) {
-                    if (token.IsCancellationRequested)
-                        break;
-                    ProcessFile(fullName);
-                }
+                ProcessFiles(this.filesToProcess, token);
+                AppendLog(this.filesToProcess.Count + " files has been copied.");
                 this.filesToProcess.Clear();
             }
         }
-        void ProcessFile(string fullName) {
-            string imagePath = ImagePathBuilder.BuildPath(this.outputDir, fullName, this.rules);
-            if (!File.Exists(imagePath) && File.Exists(fullName)) {
-                string directory = Path.GetDirectoryName(imagePath);
-                if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
-                File.Copy(fullName, imagePath, true);
+        void ProcessFiles(IEnumerable<string> files, CancellationToken token) {
+            foreach (string fullName in files) {
+                if (token.IsCancellationRequested)
+                    break;
+                string imagePath = ImagePathBuilder.BuildPath(this.outputDir, fullName, this.rules);
+                if (!File.Exists(imagePath) && File.Exists(fullName)) {
+                    try {
+                        string directory = Path.GetDirectoryName(imagePath);
+                        if (!Directory.Exists(directory))
+                            Directory.CreateDirectory(directory);
+                        File.Copy(fullName, imagePath, true);
+                    }
+                    catch (Exception e) {
+                        AppendLog("The file " + fullName + " has not copied.", e.Message, e.StackTrace);
+                    }
+                }
             }
         }
         void AfterProcessFiles() {
             if (OrganizeEnd != null)
                 OrganizeEnd(this, EventArgs.Empty);
+            AppendLog(DateTime.Now.ToString() + ": end files processing");
         }
         void BeforeProcessFiles() {
             if (OrganizeStart != null)
                 OrganizeStart(this, EventArgs.Empty);
+            AppendLog(DateTime.Now.ToString() + ": start files processing");
+        }
+        void AppendLog(params string[] content) {
+            File.AppendAllLines(Path.Combine(outputDir, "Log.txt"), content);
         }
         public void Dispose() {
             if (this.watcher != null) {
