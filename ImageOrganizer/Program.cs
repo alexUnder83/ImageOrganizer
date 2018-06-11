@@ -83,7 +83,11 @@ namespace ImageOrganizer {
             bool regrun = args != null && args.Length > 0 && args[0] == "regrun";
             if (!regrun)
                 TryRegistryAutorun();
-            new Program().Run();
+            try {
+                new Program().Run();
+            }
+            catch {
+            }
         }
         static void TryRegistryAutorun() {
             try {

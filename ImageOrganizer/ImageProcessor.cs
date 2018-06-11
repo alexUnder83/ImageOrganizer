@@ -27,12 +27,14 @@ namespace ImageOrganizer {
         string currentFileName;
         readonly object lockObject = new object();
         public ImageProcessor(string inputDir, string outputDir, string rules) {
+            this.inputDir = inputDir;
+            this.outputDir = outputDir;
+            if (!Directory.Exists(outputDir))
+                Directory.CreateDirectory(outputDir);
             if (!Directory.Exists(inputDir)) {
                 AppendLog(string.Format("{0}: launching failed. {1} isn't exists.", DateTime.Now, inputDir));
                 throw new ArgumentException();
             }
-            this.inputDir = inputDir;
-            this.outputDir = outputDir;
             this.rules = rules;
             this.watcher.Path = inputDir;
             this.watcher.IncludeSubdirectories = true;
