@@ -105,7 +105,7 @@ namespace ImageTools {
                     ExifReader reader = new ExifReader(stream);
                     Dictionary<ImagePropertyId, object> metadata = reader.ReadMetadata();
                     object value;
-                    if (!metadata.TryGetValue(ImagePropertyId.DateTime, out value))
+                    if (!metadata.TryGetValue(ImagePropertyId.DateTimeOriginal, out value))
                         return null;
 
                     string dateTime = ((string)value).TrimEnd('\0');

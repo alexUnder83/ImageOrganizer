@@ -7,7 +7,9 @@ using System.Text;
 namespace ImageTools {
     #region ImageProperty
     public class ImagePropertyId {
-        public static ImagePropertyId DateTime = new ImagePropertyId(306);
+        public static ImagePropertyId FileChangeDateTime = new ImagePropertyId(306);
+        public static ImagePropertyId DateTimeOriginal = new ImagePropertyId(36867);
+        public static ImagePropertyId DateTimeDigitized = new ImagePropertyId(36868);
 
         readonly int id;
         internal ImagePropertyId(int id) {
@@ -59,6 +61,7 @@ namespace ImageTools {
         }
 
         const int SOIMarker = 0xFFD8;
+        const int APP0Marker = 0xFFE0;
         const int APP1Marker = 0xFFE1;
         const int IntelByteAlignMarker = 0x4949;
         const int MotorolaByteAlignMarker = 0x4d4d;
@@ -77,8 +80,16 @@ namespace ImageTools {
 
         public Dictionary<ImagePropertyId, object> ReadMetadata() {
             SkipSOIMarker();
-            SkipAPP1Marker();
-            this.APP1SectionSize = ReadAPP1SectionSize();
+            //SkipAPP1Marker();
+            int marker = ReadMarker(2);
+            if (marker == APP0Marker) {
+                ProcessAPP0Section(marker);
+                marker = ReadMarker(2);
+            }
+            if (marker != APP1Marker)
+                throw new Exception(string.Format("{0} markes has not found.", "APP1"));
+
+            this.APP1SectionSize = ReadAPPSectionSize();
             string metadataType = ReadMetadataType();
             if (metadataType != "Exif")
                 throw new Exception("Metadata is not an exif format.");
@@ -94,6 +105,14 @@ namespace ImageTools {
             ReadImageFileDirectoryCore(entries);
             stream.Position = position;
             return entries;
+        }
+        void ProcessAPP0Section(int marker) {
+            int sectionLength = ReadAPPSectionSize();
+            int identifierLength = 5;
+            string identifier = ReadASCIIString(identifierLength);
+            if (identifier != "JFIF")
+                throw new Exception("Metadata is not an JFIF format.");
+            this.stream.Position += sectionLength - identifierLength - 2;
         }
         char ConvertToASCIICharValue(byte[] bytes, int startIndex) {
             return (char)bytes[startIndex];
@@ -190,7 +209,7 @@ namespace ImageTools {
         void SkipTAGMarker() {
             SkipMarker(TAGMark, "TAG");
         }
-        int ReadAPP1SectionSize() {
+        int ReadAPPSectionSize() {
             return ConvertToInt(ReadBytes(2));
         }
         string ReadMetadataType() {
@@ -273,6 +292,14 @@ namespace ImageTools {
                 last--;
             }
             return bytes;
+        }
+        string ReadASCIIString(int byteCount) {
+            byte[] bytes = ReadBytes(byteCount);
+            if (bytes == null || bytes.Length == 0)
+                return null;
+            if (bytes[bytes.Length - 1] != '\0')
+                throw new Exception("The string is not complited.");
+            return Encoding.ASCII.GetString(bytes, 0, bytes.Length - 1);
         }
     }
     public enum DataFormat {
