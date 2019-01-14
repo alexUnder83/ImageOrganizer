@@ -15,7 +15,8 @@ namespace ImageOrganizer {
             "gif",
             "mov"
         };
-        HashSet<string> filesToProcess = new HashSet<string>();
+        //HashSet<string> filesToProcess = new HashSet<string>();
+        PathTree filesToProcess = new PathTree();
         FileSystemWatcher watcher = new FileSystemWatcher();
         string outputDir;
         string inputDir;
@@ -38,16 +39,21 @@ namespace ImageOrganizer {
             this.rules = rules;
             this.watcher.Path = inputDir;
             this.watcher.IncludeSubdirectories = true;
-            this.watcher.NotifyFilter = NotifyFilters.LastWrite;
+            this.watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.DirectoryName | NotifyFilters.FileName;
             this.watcher.Changed += watcher_Changed;
+            this.watcher.Renamed += watcher_Renamed;
             this.task = StartTask();
+        }
+
+        void watcher_Renamed(object sender, RenamedEventArgs e) {
+            this.filesToProcess.Rename(e.OldFullPath, e.FullPath);
         }
 
         public event EventHandler OrganizeStart;
         public event EventHandler OrganizeEnd;
 
         void watcher_Changed(object sender, FileSystemEventArgs e) {
-            if (!IsSupportedFile(e.FullPath) || this.filesToProcess.Contains(e.FullPath))
+            if (!IsSupportedFile(e.FullPath)/* || this.filesToProcess.Contains(e.FullPath)*/)
                 return;
 
             if (!File.Exists(e.FullPath)) {
@@ -136,16 +142,17 @@ namespace ImageOrganizer {
             }
         }
         void ProcessFiles(IEnumerable<string> files, CancellationToken token) {
-            foreach (string fullName in files) {
+             foreach (string fullName in files) {
                 if (token.IsCancellationRequested)
                     break;
+                
                 string imagePath = ImagePathBuilder.BuildPath(this.outputDir, fullName, this.rules);
                 if (!File.Exists(imagePath) && File.Exists(fullName)) {
                     try {
                         string directory = Path.GetDirectoryName(imagePath);
                         if (!Directory.Exists(directory))
                             Directory.CreateDirectory(directory);
-                        File.Copy(fullName, imagePath, true);
+                        File.Copy(fullName, imagePath, false);
                     }
                     catch (Exception e) {
                         AppendLog("The file " + fullName + " has not copied.", e.Message, e.StackTrace);

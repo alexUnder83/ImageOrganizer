@@ -48,6 +48,18 @@ namespace ImageOrganizer {
             notifyIcon.ContextMenu = menu;
         }
         public void Run() {
+            //PathTree tree = new PathTree();
+            //tree.Add(@"d:\Photo\Raw\Природа\1.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\2.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\3.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\4.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\5.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\6.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\7.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\8.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\9.JPG");
+            //tree.Add(@"d:\Photo\Raw\Природа\10.JPG");
+            //tree.Contains(@"d:\Photo\Raw\Природа\9.JPG");
             this.notifyIcon.Visible = true;
             SetSynchronizedState();
             Start();
