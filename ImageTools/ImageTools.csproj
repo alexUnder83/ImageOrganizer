@@ -47,12 +47,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Arguments.cs" />
-    <Compile Include="ExifReader.cs" />
+    <Compile Include="Exif\ExifReader.cs" />
+    <Compile Include="Exif\ImageMetadata.cs" />
+    <Compile Include="Exif\ImagePropertyId.cs" />
     <Compile Include="ImageCopyHelper.cs" />
     <Compile Include="ImagePathBuilder.cs" />
     <Compile Include="PathRulesParser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -73,8 +73,11 @@ namespace ImageTools {
         static bool IsText(string format) {
             return !String.IsNullOrEmpty(format) && format.StartsWith("\"") && format.EndsWith("\"");
         }
-        public static string BuildPath(string outputDirectory, string file, string rules) {
+        public static string BuildPath(string outputDirectory, string file, string rules, PatchInfo patchInfo = null) {
             DateTime dateTime = GetCreationDate(file);
+            if (patchInfo != null)
+                dateTime += patchInfo.TimeShift;
+
             string imagePath = outputDirectory.TrimEnd(Path.DirectorySeparatorChar) + BuildPath(file, dateTime, rules);
             if (File.Exists(imagePath) && dateTime != GetCreationDate(imagePath)) {
                 string name = Path.GetFileNameWithoutExtension(file);
@@ -103,12 +106,12 @@ namespace ImageTools {
             try {
                 using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
                     ExifReader reader = new ExifReader(stream);
-                    Dictionary<ImagePropertyId, object> metadata = reader.ReadMetadata();
-                    object value;
+                    ImageMetadata metadata = reader.ReadMetadata();
+                    string value;
                     if (!metadata.TryGetValue(ImagePropertyId.DateTimeOriginal, out value))
                         return null;
 
-                    string dateTime = ((string)value).TrimEnd('\0');
+                    string dateTime = value.TrimEnd('\0');
                     string[] tokens = dateTime.Split(new char[] { ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
                     if (tokens.Length >= 6)
                         return new DateTime(int.Parse(tokens[0]), int.Parse(tokens[1]), int.Parse(tokens[2]), int.Parse(tokens[3]), int.Parse(tokens[4]), int.Parse(tokens[5]));

@@ -22,10 +22,9 @@ namespace ImageOrganizer {
 
         readonly Node root = new Node(string.Empty);
         readonly ManualResetEvent renamingEvent = new ManualResetEvent(true);
-        int count;
 
         public bool IsEmpty { get { return root.Children.Count == 0; } }
-        public int Count { get { return count; } }
+        public int Count { get; private set; }
 
         public void Add(string path) {
             string[] parts = path.Split(Path.DirectorySeparatorChar);
@@ -39,10 +38,10 @@ namespace ImageOrganizer {
                 }
                 current = child;
             }
-            this.count++;
+            Count++;
         }
         public bool Contains(string path) {
-            foreach (string value in Enumerate()) {
+            foreach (string value in EnumerateNodes()) {
                 if (value == path)
                     return true;
             }
@@ -50,7 +49,7 @@ namespace ImageOrganizer {
         }
         public void Clear() {
             this.root.Children.Clear();
-            this.count = 0;
+            Count = 0;
         }
         IEnumerable<string> ProcessChildren(Node node, string rootPath) {
             foreach (Node child in node.Children) {
@@ -69,11 +68,11 @@ namespace ImageOrganizer {
                 }
             }
         }
-        IEnumerable<string> Enumerate() {
+        IEnumerable<string> EnumerateNodes() {
             return ProcessChildren(this.root, string.Empty);
         }
         public IEnumerator<string> GetEnumerator() {
-            return Enumerate().GetEnumerator();
+            return EnumerateNodes().GetEnumerator();
         }
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() {
             return GetEnumerator();

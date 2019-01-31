@@ -13,7 +13,10 @@ namespace ImageOrganizer {
             "jpg",
             "png",
             "gif",
-            "mov"
+            "mov",
+            "mpg",
+            "mp4",
+            "3gp"
         };
         //HashSet<string> filesToProcess = new HashSet<string>();
         PathTree filesToProcess = new PathTree();
@@ -22,8 +25,8 @@ namespace ImageOrganizer {
         string inputDir;
         string rules;
         CancellationTokenSource tokenSource = new CancellationTokenSource();
+        ManualResetEvent creatingEvent = new ManualResetEvent(false);
         ManualResetEvent createdEvent = new ManualResetEvent(false);
-        ManualResetEvent changedEvent = new ManualResetEvent(false);
         Task task;
         string currentFileName;
         readonly object lockObject = new object();
@@ -53,7 +56,7 @@ namespace ImageOrganizer {
         public event EventHandler OrganizeEnd;
 
         void watcher_Changed(object sender, FileSystemEventArgs e) {
-            if (!IsSupportedFile(e.FullPath)/* || this.filesToProcess.Contains(e.FullPath)*/)
+            if (!IsSupportedFile(e.FullPath) || this.filesToProcess.Contains(e.FullPath))
                 return;
 
             if (!File.Exists(e.FullPath)) {
@@ -80,12 +83,12 @@ namespace ImageOrganizer {
             }
         }
         void OnFileCreated() {
-            this.createdEvent.Reset();
-            this.changedEvent.Set();
+            this.creatingEvent.Reset();
+            this.createdEvent.Set();
         }
         void OnFileCreating() {
-            this.changedEvent.Reset();
-            this.createdEvent.Set();
+            this.createdEvent.Reset();
+            this.creatingEvent.Set();
         }
         bool IsSupportedFile(string path) {
             return imageExtensions.Contains(Path.GetExtension(path).TrimStart('.'));
@@ -99,23 +102,23 @@ namespace ImageOrganizer {
                 bool isProcessStart = false;
                 while (!token.IsCancellationRequested) {
                     if (!isProcessStart) {
-                        createdEvent.WaitOne();
+                        creatingEvent.WaitOne();
                         if (!token.IsCancellationRequested)
                             BeforeProcessFiles();
                         isProcessStart = true;
-                        changedEvent.WaitOne();
+                        createdEvent.WaitOne();
                     }
                     else {
-                        if (!createdEvent.WaitOne(15000)) {
+                        if (!creatingEvent.WaitOne(15000)) {
                             isProcessStart = false;
                             if (!token.IsCancellationRequested) {
                                 ProcessFiles(token);
-                                if (this.filesToProcess.Count == 0)
+                                if (this.filesToProcess.IsEmpty)
                                     AfterProcessFiles();
                             }
                         }
                         else
-                            changedEvent.WaitOne();
+                            createdEvent.WaitOne();
                     }
                 }
             }, token);
@@ -142,16 +145,27 @@ namespace ImageOrganizer {
             }
         }
         void ProcessFiles(IEnumerable<string> files, CancellationToken token) {
-             foreach (string fullName in files) {
+            Dictionary<string, PatchInfo> patches = new Dictionary<string, PatchInfo>(); 
+            foreach (string fullName in files) {
                 if (token.IsCancellationRequested)
                     break;
-                
-                string imagePath = ImagePathBuilder.BuildPath(this.outputDir, fullName, this.rules);
+
+                PatchInfo patch;
+                string directory = Path.GetDirectoryName(fullName);
+                if (!patches.TryGetValue(directory, out patch)) {
+                    string[] patchFiles = Directory.GetFiles(directory, "*.patch");
+                    if (patchFiles.Length > 0)
+                        patch = PatchInfo.Read(patchFiles[0]);
+                    else
+                        patch = null;
+                    patches.Add(directory, patch);
+                }
+                string imagePath = ImagePathBuilder.BuildPath(this.outputDir, fullName, this.rules, patch);
                 if (!File.Exists(imagePath) && File.Exists(fullName)) {
                     try {
-                        string directory = Path.GetDirectoryName(imagePath);
-                        if (!Directory.Exists(directory))
-                            Directory.CreateDirectory(directory);
+                        string targetDirectory = Path.GetDirectoryName(imagePath);
+                        if (!Directory.Exists(targetDirectory))
+                            Directory.CreateDirectory(targetDirectory);
                         File.Copy(fullName, imagePath, false);
                     }
                     catch (Exception e) {
@@ -180,14 +194,14 @@ namespace ImageOrganizer {
             }
             if (this.task != null) {
                 this.tokenSource.Cancel();
+                this.creatingEvent.Set();
                 this.createdEvent.Set();
-                this.changedEvent.Set();
                 this.task.Wait();
                 this.task.Dispose();
                 this.task = null;
                 this.tokenSource.Dispose();
+                this.creatingEvent.Dispose();
                 this.createdEvent.Dispose();
-                this.changedEvent.Dispose();
             }
         }
     }

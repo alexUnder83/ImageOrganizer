@@ -44,12 +44,12 @@ namespace ImageTools {
             using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
                 try {
                     ExifReader reader = new ExifReader(stream);
-                    Dictionary<ImagePropertyId, object> metadata = reader.ReadMetadata();
-                    object value;
+                    ImageMetadata metadata = reader.ReadMetadata();
+                    string value;
                     if (!metadata.TryGetValue(ImagePropertyId.FileChangeDateTime, out value))
                         return null;
 
-                    string dateTime = ((string)value).TrimEnd('\0');
+                    string dateTime = value.TrimEnd('\0');
                     string[] tokens = dateTime.Split(new char[] { ' ', ':' }, StringSplitOptions.RemoveEmptyEntries);
                     if (tokens.Length >= 6)
                         return new DateTime(int.Parse(tokens[0]), int.Parse(tokens[1]), int.Parse(tokens[2]), int.Parse(tokens[3]), int.Parse(tokens[4]), int.Parse(tokens[5]));

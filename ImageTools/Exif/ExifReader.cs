@@ -5,35 +5,6 @@ using System.Linq;
 using System.Text;
 
 namespace ImageTools {
-    #region ImageProperty
-    public class ImagePropertyId {
-        public static ImagePropertyId FileChangeDateTime = new ImagePropertyId(306);
-        public static ImagePropertyId DateTimeOriginal = new ImagePropertyId(36867);
-        public static ImagePropertyId DateTimeDigitized = new ImagePropertyId(36868);
-
-        readonly int id;
-        internal ImagePropertyId(int id) {
-            this.id = id;
-        }
-
-        public override bool Equals(object obj) {
-            return (obj is ImagePropertyId) && ((ImagePropertyId)obj).id == id;
-        }
-        public override int GetHashCode() {
-            return id;
-        }
-        public override string ToString() {
-            return id.ToString();
-        }
-        public static implicit operator int(ImagePropertyId prop) {
-            return prop.id;
-        }
-        public static implicit operator ImagePropertyId(int id) {
-            return new ImagePropertyId(id);
-        }
-    }
-    #endregion
-
     class ExifReader {
         public enum ByteAlignType {
             Unknown,
@@ -66,6 +37,8 @@ namespace ImageTools {
         const int IntelByteAlignMarker = 0x4949;
         const int MotorolaByteAlignMarker = 0x4d4d;
         const int TAGMark = 0x002A;
+        const int ExifIFDPointerTag = 34665;
+        const int GPSInfoIFDPointerTag = 34853;
 
         const int TIFFHeaderSize = 8;
 
@@ -78,9 +51,8 @@ namespace ImageTools {
             this.stream.Position = 0;
         }
 
-        public Dictionary<ImagePropertyId, object> ReadMetadata() {
+        public ImageMetadata ReadMetadata() {
             SkipSOIMarker();
-            //SkipAPP1Marker();
             int marker = ReadMarker(2);
             if (marker == APP0Marker) {
                 ProcessAPP0Section(marker);
@@ -96,7 +68,7 @@ namespace ImageTools {
             this.theTIFFHeaderStartPosition = this.stream.Position;
             ReadTIFFHeader();
 
-            Dictionary<ImagePropertyId, object> entries = new Dictionary<ImagePropertyId, object>();
+            ImageMetadata entries = new ImageMetadata();
             ReadImageFileDirectoryCore(entries);
             int IFD1Offset = ReadIntValue(4);
 
@@ -148,7 +120,7 @@ namespace ImageTools {
             int IFDSectionOffset = ReadIntValue(4) - TIFFHeaderSize;
             this.stream.Position += IFDSectionOffset;
         }
-        void ReadImageFileDirectoryCore(Dictionary<ImagePropertyId, object> entries) {
+        void ReadImageFileDirectoryCore(ImageMetadata entries) {
             int entryCount = ReadIntValue(2);
             for (int i = 0; i < entryCount; i++) {
                 int tagNumber = ReadIntValue(2);
@@ -170,15 +142,15 @@ namespace ImageTools {
                 ProcessEntry(tagNumber, value, entries);
             }
         }
-        void ProcessEntry(int tagNumber, object value, Dictionary<ImagePropertyId, object> entries) {
-            if (tagNumber == 34665 || tagNumber == 34853) {
+        void ProcessEntry(int tagNumber, object value, ImageMetadata entries) {
+            if (tagNumber == ExifIFDPointerTag || tagNumber == GPSInfoIFDPointerTag) {
                 long position = stream.Position;
                 stream.Position = (int)value + this.theTIFFHeaderStartPosition;
                 ReadImageFileDirectoryCore(entries);
                 stream.Position = position;
             }
             else
-                entries[new ImagePropertyId(tagNumber)] = value;
+                entries[(ImagePropertyId)tagNumber] = value;
         }
         object ReadValue(byte[] valueBytes, DataFormat format, int count) {
             int dataLength = dataFormatBytes[format];
